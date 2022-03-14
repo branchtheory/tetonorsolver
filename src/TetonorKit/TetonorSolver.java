@@ -1,8 +1,13 @@
+///there's a big ass problem with the fact that sometimes we can get solutions that have 5 sums and 7 products
+///hacky solution is just to check for that in the solution checker
+///but I should find a way to deal with it better
+
 package TetonorKit;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Objects;
 
 public class TetonorSolver {
 
@@ -58,15 +63,15 @@ public class TetonorSolver {
                                     System.out.println("MAIN LOOP\n");
 
         while (!solutionFound) {
-            //problem : I have no idea where on earth the 1 valiue is coming from for the third gridItem. When it's split it's not there
-            //but when we do the After split thing it randomly appears
                                     System.out.println("BRANCH " + currentBranch + "\n");
                                     System.out.println("Initial");
                                     System.out.println(Arrays.deepToString(branches.get(currentBranch)) + "\n");
+                                    checkForEvenNumberOfDones();
 
             postSplit(branches.get(currentBranch));
                                     System.out.println("After split");
                                     System.out.println(Arrays.deepToString(branches.get(currentBranch)) + "\n");
+                                    checkForEvenNumberOfDones();
 
             do {
                 if (branchIsBroken(branches.get(currentBranch))) {
@@ -76,6 +81,7 @@ public class TetonorSolver {
                 if (thereCouldBeAnotherSingleToTackle) {
                                     System.out.println("After singles");
                                     System.out.println(Arrays.deepToString(branches.get(currentBranch)) + "\n");
+                                    checkForEvenNumberOfDones();
                 }
             } while (thereCouldBeAnotherSingleToTackle);
             if (branchIsBroken(branches.get(currentBranch))) {
@@ -85,8 +91,19 @@ public class TetonorSolver {
                                     printExisitingBranches();
                 continue;
             }
-
-            if(solutionChecker(branches.get(currentBranch))) return branches.get(currentBranch);
+            if (potentialSolutionFound(branches.get(currentBranch))) {
+                if (solutionIsValid(branches.get(currentBranch))) {
+                                    System.out.println("Solution found!");
+                                    System.out.println(Arrays.deepToString(branches.get(currentBranch)));
+                    return branches.get(currentBranch);
+                } else {
+                                    System.out.println("<>Incorrect solution<>\n");
+                    branches.remove(currentBranch);
+                    currentBranch++;
+                                    printExisitingBranches();
+                    continue;
+                }
+            }
 
             branchSplitter(branches.get(currentBranch));
             currentBranch++;
@@ -94,6 +111,27 @@ public class TetonorSolver {
                                     printExisitingBranches();
         }
         return branches.get(currentBranch);
+    }
+
+    private void checkForEvenNumberOfDones() {
+        int numberOfDones = 0;
+        for (int gridItem = 0; gridItem < NUMBEROFGRIDITEMS; gridItem++) {
+            if (branches.get(currentBranch)[gridItem][0][5] == DONE) {
+                numberOfDones++;
+            }
+        }
+        if (numberOfDones % 2 != 0) {
+            System.out.println("Odd number of done markers\n");
+        }
+    }
+
+    private boolean potentialSolutionFound(int[][][] branch) {
+        for (int gridItem = 0; gridItem < NUMBEROFGRIDITEMS; gridItem++) {
+            if (branch[gridItem][0][5] == UNUSED) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public int[][][] findInitialQuads(int[] grid16) {
@@ -269,6 +307,11 @@ public class TetonorSolver {
         correspondingItemGrid16Value = getCorrespondingItemGrid16Value(potQuads, singleQuadItemGrid16Value, singleQuadItemIndex);
         correspondingItemIndex = getCorrespondingItemIndex(correspondingItemGrid16Value);
 
+        System.out.println("singleQuadItemGrid16Value " + singleQuadItemGrid16Value);
+        System.out.println("singleQuadItemIndex " + singleQuadItemIndex);
+        System.out.println("correspondingItemGrid16Value " + correspondingItemGrid16Value);
+        System.out.println("correspondingItemIndex " + correspondingItemIndex);
+
         potQuads = removeAllQuadsInTheCorrespondingGridItemExceptTheOneThatLinksWithTheSingle(potQuads, singleQuadItemIndex, correspondingItemIndex);
         potQuads = removeAllLinksToAGridItem(potQuads, correspondingItemGrid16Value, correspondingItemIndex);
         return potQuads;
@@ -340,9 +383,52 @@ public class TetonorSolver {
         return gridItem[0][0] == 0;
     }
 
-    public boolean solutionChecker(int[][][] branch) {
+    public boolean solutionIsValid(int[][][] branch) {
+        if (!theQuadsMatchTheOriginalLineOrGridInputs(branch, GRID16, SUM_SIGNIFIER, "grid")) return false;
+        if (!theQuadsMatchTheOriginalLineOrGridInputs(branch, GRID16, PRODUCT_SIGNIFIER, "grid")) return false;
+        if (!theQuadsMatchTheOriginalLineOrGridInputs(branch, LINE16, SUM_SIGNIFIER, "line")) return false;
+        if (!theQuadsMatchTheOriginalLineOrGridInputs(branch, LINE16, PRODUCT_SIGNIFIER, "line")) return false;
+        return true;
+
+/*        for (int gridItemIndex = 0; gridItemIndex < NUMBEROFGRIDITEMS; gridItemIndex++) {
+            int[] correspondingGridItemQuad;
+            correspondingGridItemQuad = Arrays.copyOf(branch[gridItemIndex][0], 6);
+            correspondingGridItemQuad[0] = correspondingGridItemQuad[0] == SUM_SIGNIFIER ? PRODUCT_SIGNIFIER : SUM_SIGNIFIER;
+
+            boolean theresACorrespondingGridItem = false;
+
+            for (int correspondingGridItemIndex = 0; correspondingGridItemIndex < NUMBEROFGRIDITEMS; correspondingGridItemIndex++) {
+                if (Arrays.equals(branch[gridItemIndex][0], correspondingGridItemQuad))
+                  theresACorrespondingGridItem = true;
+            }
+
+            if (!theresACorrespondingGridItem)
+                System.out.println("There's no corresponding grid item");
+                return false;
+        }*/
+    }
+
+    private boolean theQuadsMatchTheOriginalLineOrGridInputs(int[][][] branch, int[] originalData,
+                                                             int sumOrProdValue, String dataType) {
+        int locationInQuadOfThisDataType;
+        if (Objects.equals(dataType, "grid"))
+            locationInQuadOfThisDataType = 1;
+        else locationInQuadOfThisDataType = 3;
+        int[] itemsToTest = new int[16];
+        int indexNumForPuttingThingsIntoItemsToTest = 0;
         for (int gridItem = 0; gridItem < NUMBEROFGRIDITEMS; gridItem++) {
-            if (branch[gridItem][0][5] != DONE) {
+            if (branch[gridItem][0][0] == sumOrProdValue) {
+                itemsToTest[indexNumForPuttingThingsIntoItemsToTest] = branch[gridItem][0][locationInQuadOfThisDataType];
+                indexNumForPuttingThingsIntoItemsToTest += 1;
+                itemsToTest[indexNumForPuttingThingsIntoItemsToTest] = branch[gridItem][0][locationInQuadOfThisDataType + 1];
+                indexNumForPuttingThingsIntoItemsToTest += 1;
+            }
+        }
+
+        Arrays.sort(itemsToTest);
+
+        for (int lineItem = 0; lineItem < NUMBEROFGRIDITEMS;lineItem++) {
+            if (originalData[lineItem] != 0 && originalData[lineItem] != itemsToTest[lineItem]) {
                 return false;
             }
         }
